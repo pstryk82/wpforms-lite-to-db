@@ -3,9 +3,6 @@
 Plugin Name: WPForms Lite to Database
 */
 
-
-
-
 class Participant
 {
     private $competition_id;
@@ -28,7 +25,6 @@ class Participant
         $this->send_confirmation = $send_confirmation;
         $this->message = $message;
     }
-
 }
 
 class DbConnector
@@ -144,30 +140,6 @@ function save_to_db()
 
 }
 
-
-function save_to_db_options_api()
-{
-    $args = func_get_args();
-    if (!is_array($args[1])) {
-        throw new \Exception('Coś poszło nie tak, spróbuj ponownie później.');
-    }
-    $data = $args[1];
-    $competition_id = $data['id'];
-    $participant = new Participant(
-        $competition_id, join(' ', array_values($data['fields'][3])),
-        $data['fields'][4], $data['fields'][9], $data['fields'][5],
-        $data['fields'][6], !empty($data['fields'][7]), $data['fields'][8]
-    );
-
-    $current_participants = get_option('competition_' . $competition_id);
-    $current_participants[] = $participant;
-    update_option('competition_' . $competition_id, $current_participants);
-
-}
-
-
-
 add_filter('the_content', 'show_registered_participants');
 add_filter('the_excerpt', 'show_registered_participants');
-//add_action( 'wpforms_process_complete', $fields, $entry, $form_data, $entry_id );
 add_action('wpforms_process_complete', 'save_to_db', 10, 4);
