@@ -83,17 +83,21 @@ function show_registered_participants(string $text)
             $html = '<p>Jeszcze nikt się nie zarejestrował... na co czekasz? :)</p>';
         } else {
             $html = pretty_print_registered_participants($participants);
+            $html .= pretty_print_count_by_categories($competition_id, count($participants));
         }
     }
     return $text . $html;
 }
 
-function pretty_print_registered_participants($participants)
+function pretty_print_registered_participants($participants): string
 {
-    $html = "<table><thead><th>Imię i nazwisko</th><th>Płeć</th><th>Klasa łuku</th><th>Kategoria wiekowa</th><th>Miasto/Klub</th></thead><tbody>";
+    $html = sprintf("<h4>Liczba zgłoszonych uczestników: %d</h4>", count($participants));
+    $html .= "<table><thead><th>Lp.</th><th>Imię i nazwisko</th><th>Płeć</th><th>Klasa łuku</th><th>Kategoria wiekowa</th><th>Miasto/Klub</th></thead><tbody>";
 
+    $index = 0;
     foreach ($participants as $participant_data) {
-        $html .= "<tr><td> {$participant_data['name']} </td><td> {$participant_data['gender']} </td><td> {$participant_data['gear']} </td><td> {$participant_data['age_category']} </td><td> {$participant_data['club_or_city']} </td></tr>";
+        $index++;
+        $html .= "<tr><td>{$index}</td><td> {$participant_data['name']} </td><td> {$participant_data['gender']} </td><td> {$participant_data['gear']} </td><td> {$participant_data['age_category']} </td><td> {$participant_data['club_or_city']} </td></tr>";
     }
     $html .= "</tbody></table>";
     return $html;
@@ -108,6 +112,30 @@ function get_registered_participants(int $competition_id): array
     );
 
     return $participants;
+}
+
+function pretty_print_count_by_categories(int $competition_id, int $total): string
+{
+    $data = get_count_by_categories($competition_id);
+    $html = "<h4>Liczba zgłoszonych uczestników w poszczególnych kategoriach:</h4>";
+    $html .= "<table><tbody>";
+
+    foreach ($data as $stats) {
+        $html .= "<tr><td>{$stats->gear}</td><td>{$stats->number_of_participants}</td></tr>";
+    }
+    $html .= "<tr><td><b>Razem:</b></td><td><b>{$total}</b></td></tr>";
+    $html .= "</tbody></table>";
+
+    return $html;
+}
+
+function get_count_by_categories(int $competition_id): array
+{
+    global $wpdb;
+    $sql = $wpdb->prepare('select gear, count(1) as number_of_participants from wp_participant where competition_id = %d group by gear', $competition_id);
+    $result = $wpdb->get_results($sql);
+
+    return $result;
 }
 
 function get_competition_id(string $post_content): string
