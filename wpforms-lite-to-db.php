@@ -7,6 +7,7 @@ class Participant
 {
     private $competition_id;
     private $name;
+    private $gender;
     private $gear;
     private $age_category;
     private $club_or_city;
@@ -14,10 +15,11 @@ class Participant
     private $send_confirmation;
     private $message;
 
-    public function __construct($competition_id, $name, $gear, $age_category, $club_or_city, $email, $send_confirmation, $message)
+    public function __construct($competition_id, $name, $gender, $gear, $age_category, $club_or_city, $email, $send_confirmation, $message)
     {
         $this->competition_id = $competition_id;
         $this->name = $name;
+        $this->gender = $gender;
         $this->gear = $gear;
         $this->age_category = $age_category;
         $this->club_or_city = $club_or_city;
@@ -77,17 +79,21 @@ function show_registered_participants(string $text)
     $html = '';
     if (!empty($competition_id) && is_numeric($competition_id)) {
         $participants = get_registered_participants($competition_id);
-        $html = pretty_print_registered_participants($participants);
+        if (empty($participants)) {
+            $html = '<p>Jeszcze nikt się nie zarejestrował... na co czekasz? :)</p>';
+        } else {
+            $html = pretty_print_registered_participants($participants);
+        }
     }
     return $text . $html;
 }
 
 function pretty_print_registered_participants($participants)
 {
-    $html = "<table><thead><th>Imię i nazwisko</th><th>Klasa łuku</th><th>Kategoria wiekowa</th><th>Miasto/Klub</th></thead><tbody>";
+    $html = "<table><thead><th>Imię i nazwisko</th><th>Płeć</th><th>Klasa łuku</th><th>Kategoria wiekowa</th><th>Miasto/Klub</th></thead><tbody>";
 
     foreach ($participants as $participant_data) {
-        $html .= "<tr><td> {$participant_data['name']} </td><td> {$participant_data['gear']} </td><td> {$participant_data['age_category']} </td><td> {$participant_data['club_or_city']} </td></tr>";
+        $html .= "<tr><td> {$participant_data['name']} </td><td> {$participant_data['gender']} </td><td> {$participant_data['gear']} </td><td> {$participant_data['age_category']} </td><td> {$participant_data['club_or_city']} </td></tr>";
     }
     $html .= "</tbody></table>";
     return $html;
@@ -106,7 +112,7 @@ function get_registered_participants(int $competition_id): array
 
 function get_competition_id(string $post_content): string
 {
-    preg_match('|\[wpforms\s+id=\"(\d+)\"\]|', $post_content, $matches);
+    preg_match('|\[wpforms\s+id=\"(\d+)\"|', $post_content, $matches);
     $competition_id = $matches[1] ?? '';
 
     return $competition_id;
@@ -122,12 +128,13 @@ function save_to_db()
     $competition_id = $data['id'];
 
     $dbConnector = new DbConnector();
-    $sql = 'INSERT INTO wp_participant (competition_id, name, gear, age_category, club_or_city, email, send_confirmation, message)
-      VALUES (:competition_id, :name, :gear, :age_category, :club_or_city, :email, :send_confirmation, :message)';
+    $sql = 'INSERT INTO wp_participant (competition_id, name, gender, gear, age_category, club_or_city, email, send_confirmation, message)
+      VALUES (:competition_id, :name, :gender, :gear, :age_category, :club_or_city, :email, :send_confirmation, :message)';
 
     $result = $dbConnector->exec($sql, [
         'competition_id' => $competition_id,
         'name' => join(' ', array_values($data['fields'][3])),
+        'gender' => substr($data['fields'][12], 0, 1),
         'gear' => $data['fields'][4],
         'age_category' => $data['fields'][9],
         'club_or_city' => $data['fields'][5],
@@ -140,6 +147,39 @@ function save_to_db()
 
 }
 
+function send_email_confirmation() {
+    $args = func_get_args();
+    $data = $args[1]['fields'];
+
+    $subject = $args[2]['settings']['form_title'] . ' - potwierdzenie';
+    $to = get_option('admin_email');
+    prepare_and_send_email($data, $to, $subject);
+
+    if (!empty($data[7])) {
+        $to = $data[6];
+        prepare_and_send_email($data, $to, $subject);
+    }
+}
+
+function prepare_and_send_email($data, $to, $subject)
+{
+    $message = '<p>Niniejszym potwierdzamy rejestrację na zawody na podane przez Ciebie dane:</p>';
+    $message = '<ul>';
+    $message .= sprintf('<li>Imię i nazwisko: %s </li>', join(' ', $data[3]));
+    $message .= sprintf('<li>Płeć: %s </li>', $data[12]);
+    $message .= sprintf('<li>Kategoria sprzętowa: %s </li>', $data[4]);
+    $message .= sprintf('<li>Kategoria wiekowa: %s </li>', $data[9]);
+    $message .= sprintf('<li>Miasto/Klub %s </li>', $data[5]);
+    if (!empty($data[8])) {
+        $message .= sprintf('<li>Wiadomość: %s </li>', $data[8]);
+    }
+    $message .= '</ul>';
+    $message .= '<p>Do zobaczenia!</p><p></p><p>Stowarzyszenie Łuczników Pomorza "SŁuP"</p>';
+    $headers = ['Content-Type: text/html; charset=UTF-8'];
+    wp_mail($to, $subject, $message, $headers);
+}
+
 add_filter('the_content', 'show_registered_participants');
 add_filter('the_excerpt', 'show_registered_participants');
 add_action('wpforms_process_complete', 'save_to_db', 10, 4);
+add_action('wpforms_process_complete', 'send_email_confirmation', 10, 4);

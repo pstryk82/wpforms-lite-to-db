@@ -5,6 +5,7 @@ CREATE TABLE wp_participant
     PRIMARY KEY,
   competition_id    INT         NOT NULL,
   name              VARCHAR(50) NOT NULL,
+  gender            ENUM('K', 'M') NOT NULL,
   gear              VARCHAR(30) NULL,
   age_category      VARCHAR(30) NULL,
   club_or_city      VARCHAR(30) NULL,
