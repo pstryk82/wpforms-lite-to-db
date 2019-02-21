@@ -153,6 +153,9 @@ function save_to_db()
         throw new \Exception('Coś poszło nie tak, spróbuj ponownie później.');
     }
     $data = $args[1];
+    if (empty($data['fields'][11]) || empty($data['fields'][13]) || empty($data['fields'][14]) || empty($data['fields'][15]) || empty($data['fields'][16])) {
+        throw new \Exception('Zaznacz wszystkie wymagane zgody dotyczące danych osobowych.');
+    }
     $competition_id = $data['id'];
 
     $dbConnector = new DbConnector();
