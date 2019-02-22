@@ -14,8 +14,10 @@ class Participant
     private $email;
     private $send_confirmation;
     private $message;
+    private $meal_type;
 
-    public function __construct($competition_id, $name, $gender, $gear, $age_category, $club_or_city, $email, $send_confirmation, $message)
+
+    public function __construct($competition_id, $name, $gender, $gear, $age_category, $club_or_city, $email, $send_confirmation, $message, $meal_type)
     {
         $this->competition_id = $competition_id;
         $this->name = $name;
@@ -26,6 +28,7 @@ class Participant
         $this->email = $email;
         $this->send_confirmation = $send_confirmation;
         $this->message = $message;
+        $this->meal_type = $meal_type;
     }
 }
 
@@ -92,12 +95,20 @@ function show_registered_participants(string $text)
 function pretty_print_registered_participants($participants): string
 {
     $html = sprintf("<h4>Liczba zgłoszonych uczestników: %d</h4>", count($participants));
-    $html .= "<table><thead><th>Lp.</th><th>Imię i nazwisko</th><th>Płeć</th><th>Klasa łuku</th><th>Kategoria wiekowa</th><th>Miasto/Klub</th></thead><tbody>";
+    $html .= "<table><thead><th>Lp.</th><th>Imię i nazwisko</th><th>Płeć</th><th>Klasa łuku</th><th>Kategoria wiekowa</th><th>Miasto/Klub</th><th>Posiłek</th></thead><tbody>";
 
     $index = 0;
     foreach ($participants as $participant_data) {
         $index++;
-        $html .= "<tr><td>{$index}</td><td> {$participant_data['name']} </td><td> {$participant_data['gender']} </td><td> {$participant_data['gear']} </td><td> {$participant_data['age_category']} </td><td> {$participant_data['club_or_city']} </td></tr>";
+        $html .= "<tr>" .
+            "<td>{$index}</td>" .
+            "<td> {$participant_data['name']} </td>" .
+            "<td> {$participant_data['gender']} </td>" .
+            "<td> {$participant_data['gear']} </td>" .
+            "<td> {$participant_data['age_category']} </td>" .
+            "<td> {$participant_data['club_or_city']} </td>" .
+            "<td> {$participant_data['meal_type']} </td>" .
+            "</tr>";
     }
     $html .= "</tbody></table>";
     return $html;
@@ -146,21 +157,31 @@ function get_competition_id(string $post_content): string
     return $competition_id;
 }
 
+function get_consent_fields($form_meta)
+{
+    $config = json_decode($form_meta['settings']['form_desc']);
+    return $config->consent_ids;
+}
+
 function save_to_db()
 {
     $args = func_get_args();
-    if (!is_array($args[1])) {
+    if (!is_array($args[1]) || !is_array($args[2])) {
         throw new \Exception('Coś poszło nie tak, spróbuj ponownie później.');
     }
     $data = $args[1];
-    if (empty($data['fields'][11]) || empty($data['fields'][13]) || empty($data['fields'][14]) || empty($data['fields'][15]) || empty($data['fields'][16])) {
-        throw new \Exception('Zaznacz wszystkie wymagane zgody dotyczące danych osobowych.');
+    $consent_fields = get_consent_fields($args[2]);
+    foreach ($consent_fields as $consent_id) {
+        if (empty($data['fields'][$consent_id])) {
+            throw new \Exception('Zaznacz wszystkie wymagane zgody dotyczące danych osobowych.');
+        }
     }
+
     $competition_id = $data['id'];
 
     $dbConnector = new DbConnector();
-    $sql = 'INSERT INTO wp_participant (competition_id, name, gender, gear, age_category, club_or_city, email, send_confirmation, message)
-      VALUES (:competition_id, :name, :gender, :gear, :age_category, :club_or_city, :email, :send_confirmation, :message)';
+    $sql = 'INSERT INTO wp_participant (competition_id, name, gender, gear, age_category, club_or_city, email, send_confirmation, message, meal_type)
+      VALUES (:competition_id, :name, :gender, :gear, :age_category, :club_or_city, :email, :send_confirmation, :message, :meal_type)';
 
     $result = $dbConnector->exec($sql, [
         'competition_id' => $competition_id,
@@ -172,6 +193,7 @@ function save_to_db()
         'email' => $data['fields'][6],
         'send_confirmation' => (int)!empty($data['fields'][7]),
         'message' => $data['fields'][8],
+        'meal_type' => substr($data['fields'][19], 0, 1),
     ]);
 
     return $result;
@@ -201,6 +223,7 @@ function prepare_and_send_email($data, $to, $subject)
     $message .= sprintf('<li>Kategoria sprzętowa: %s </li>', $data[4]);
     $message .= sprintf('<li>Kategoria wiekowa: %s </li>', $data[9]);
     $message .= sprintf('<li>Miasto/Klub %s </li>', $data[5]);
+    $message .= sprintf('<li>Posiłek %s </li>', $data[19]);
     if (!empty($data[8])) {
         $message .= sprintf('<li>Wiadomość: %s </li>', $data[8]);
     }
