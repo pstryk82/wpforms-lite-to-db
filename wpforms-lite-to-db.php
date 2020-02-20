@@ -193,7 +193,7 @@ function save_to_db()
         'email' => $data['fields'][6],
         'send_confirmation' => (int)!empty($data['fields'][7]),
         'message' => $data['fields'][8],
-        'meal_type' => substr($data['fields'][19], 0, 1),
+        'meal_type' => substr($data['fields'][19], 0, 1) ?: null,
     ]);
 
     return $result;

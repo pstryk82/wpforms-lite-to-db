@@ -12,7 +12,7 @@ CREATE TABLE wp_participant
   email             VARCHAR(50) NULL,
   send_confirmation TINYINT(1)  NULL,
   message           TEXT        NULL,
-  meal_type         ENUM('T', 'W') NOT NULL,
+  meal_type         ENUM('T', 'W') NULL,
 )
   ENGINE = InnoDB, CHARSET = utf8;
 
